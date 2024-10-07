@@ -1,3 +1,6 @@
+# Note
+This project is under development, do not try it until this statment will disapear. 
+
 # Your support
 This open-source project is developed in my free time. 
 Your donation would help me dedicate more time and resources to improve project, add new features, fix bugs, 
