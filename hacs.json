@@ -1,0 +1,8 @@
+{
+  "name": "HY09RF Thermostat",
+  "content_in_root": false,
+  "domains": ["climate"],  
+  "homeassistant": "0.1.0",
+  "iot_class": "Public Polling",
+  "render_readme": true
+}

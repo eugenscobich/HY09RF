@@ -1,0 +1,10 @@
+{
+  "domain": "hy09rf",
+  "name": "HY09RF Thermostat",
+  "documentation": "https://github.com/eugenscobich/hass-hy09rf",
+  "dependencies": [],
+  "codeowners": ["@eugenscobich"],
+  "issue_tracker": "https://github.com/eugenscobich/hass-hy09rf/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}
