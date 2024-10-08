@@ -3,6 +3,7 @@ import json
 import logging
 import time
 from datetime import datetime
+import homeassistant.helpers.httpx_client
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ class Hy09rfThermostat:
     async def login(self):
         params = {'username': self._username, 'password': self._password}
         headers = {"X-Gizwits-Application-Id": self._appId}
-        async with httpx.AsyncClient() as client:
+        async with homeassistant.helpers.httpx_client.get_async_client() as client:
             try:
                 response = await client.post("https://" + self._host + "/app/login", headers=headers, json=params)
                 if response.status_code // 100 == 2:
@@ -45,13 +46,13 @@ class Hy09rfThermostat:
             await self.bindings()
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        async with httpx.AsyncClient() as client:
+        async with homeassistant.helpers.httpx_client.get_async_client() as client:
             try:
                 response = await client.get("https://" + self._host + "/app/bindings", headers=headers)
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
                     self._did = responseJson.get("devices")[0].get("did")
-                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                    _LOGGER.warning("Thermostat bindings result: %s", responseJson)
                 elif response.status_code == 400:
                     await self.login()
                     await self.bindings()
@@ -67,13 +68,13 @@ class Hy09rfThermostat:
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
 
-        async with httpx.AsyncClient() as client:
+        async with homeassistant.helpers.httpx_client.get_async_client() as client:
             try:
                 response = await client.get("https://" + self._host + "/app/devices/" + self._did, headers=headers)
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
                     self._isOnline = responseJson.get("is_online")
-                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                    _LOGGER.warning("Thermostat device state: %s", responseJson)
                 elif response.status_code == 400:
                     await self.login()
                     await self.deviceState()
@@ -93,12 +94,12 @@ class Hy09rfThermostat:
 
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
 
-        async with httpx.AsyncClient() as client:
+        async with homeassistant.helpers.httpx_client.get_async_client() as client:
             try:
                 response = await client.get("https://" + self._host + "/app/devdata/" + self._did + "/latest", headers=headers)
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
-                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                    _LOGGER.warning("Thermostat device attributes result: %s", responseJson)
                     return responseJson
                 elif response.status_code == 400:
                     await self.login()
@@ -119,7 +120,7 @@ class Hy09rfThermostat:
         
         params = {"attrs":  attrs}
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        async with httpx.AsyncClient() as client:
+        async with homeassistant.helpers.httpx_client.get_async_client() as client:
             try:
                 response = await client.post("https://" + self._host + "/app/control/" + self._did, headers=headers, json=params)
                 if response.status_code == 200:
