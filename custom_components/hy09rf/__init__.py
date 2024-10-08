@@ -36,12 +36,12 @@ class Hy09rfThermostat:
                 response = json.loads(response_data)
                 self._uid = response.get("uid")
                 self._token = response.get("token")
+                _LOGGER.info("Thermostat login result: %s", response)
                 return response
             else:
                 raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
         finally:
             connection.close()
 
@@ -59,6 +59,7 @@ class Hy09rfThermostat:
             if 200 <= response.status < 300:
                 response = json.loads(response_data)
                 self._did = response.get("devices")[0].get("did")
+                _LOGGER.info("Thermostat bindings result: %s", response)
                 return response
             elif response.status == 400:
                 self.login()
@@ -66,8 +67,7 @@ class Hy09rfThermostat:
             else:
                 raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
         finally:
             connection.close()
 
@@ -85,6 +85,7 @@ class Hy09rfThermostat:
             if 200 <= response.status < 300:
                 response = json.loads(response_data)
                 self._isOnline = response.get("is_online")
+                _LOGGER.info("Thermostat device state result: %s", response)
                 return response
             elif response.status == 400:
                 self.login()
@@ -92,8 +93,7 @@ class Hy09rfThermostat:
             else:
                 raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
         finally:
             connection.close()
 
@@ -113,15 +113,16 @@ class Hy09rfThermostat:
             response = connection.getresponse()
             response_data = response.read().decode()
             if 200 <= response.status < 300:
-                return json.loads(response_data)
+                response = json.loads(response_data)
+                _LOGGER.info("Thermostat device attributes result: %s", response)
+                return response
             elif response.status == 400:
                 self.login()
                 return self.deviceAttrs()
             else:
                 raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
         finally:
             connection.close()
 
@@ -144,6 +145,7 @@ class Hy09rfThermostat:
             response_data = response.read().decode()
             if 200 <= response.status < 300:
                 response = json.loads(response_data)
+                _LOGGER.info("Thermostat set device attributes result OK")
                 return response
             elif response.status == 400:
                 self.login()
@@ -151,8 +153,7 @@ class Hy09rfThermostat:
             else:
                 raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            print(f"An error occurred: {e}")
-            raise
+            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
         finally:
             connection.close()
 

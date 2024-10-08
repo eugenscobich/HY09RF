@@ -188,8 +188,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             'external_temp': self._external_temp,
             'room_temp': self._room_temp,
             'current_temp': self._thermostat_current_temp,
-            'target_temp': self._thermostat_target_temp,
-            'loop_mode': self._thermostat_loop_mode
+            'target_temp': self._thermostat_target_temp
         }
 
     async def async_added_to_hass(self) -> None:
@@ -262,24 +261,24 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             return
 
         # Temperatures
-        self._room_temp = data['room_temperature']
-        self._hysteresis = int(data['room_temperature_compensate'])
-        self._min_temp = int(data['set_temperature_min'])
-        self._max_temp = int(data['set_temperature_max'])
+        self._room_temp = data.get("room_temperature")
+        self._hysteresis = data.get("room_temperature_compensate")
+        self._min_temp = data.get("set_temperature_min")
+        self._max_temp = data.get("set_temperature_max")
 
-        self._thermostat_target_temp = data['set_temperature']
+        self._thermostat_target_temp = data.get("set_temperature")
 
         # Thermostat modes & status
-        if data["power"] == 0:
+        if data.get("power") == 0:
             # Unset away mode
             self._preset_mode = PRESET_NONE
             self._thermostat_current_mode = HVACMode.OFF
             self._thermostat_current_action = HVACAction.OFF
         else:
             # Set mode to manual when overridden auto mode or thermostat is in manual mode
-            if data["work_mode"] == 0:
+            if data.get("work_mode") == 0:
                 self._thermostat_current_mode = HVACMode.HEAT
-                if data['heating_state'] == 1:
+                if data.get("heating_state") == 1:
                     self._thermostat_current_action = HVACAction.HEATING
                 else:
                     self._thermostat_current_action = HVACAction.IDLE
@@ -287,7 +286,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
                 # Unset away mode
                 self._preset_mode = PRESET_NONE
                 self._thermostat_current_mode = HVACMode.AUTO
-                if data['heating_state'] == 1:
+                if data.get("heating_state") == 1:
                     self._thermostat_current_action = HVACAction.HEATING
                 else:
                     self._thermostat_current_action = HVACAction.IDLE
