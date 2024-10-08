@@ -66,7 +66,18 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
     def __init__(self, hass, config):
         self._hass = hass
-        self._thermostat = Hy09rfThermostat(config.get(CONF_USERNAME), config.get(CONF_PASSWORD), config.get(CONF_HOST), config.get(CONF_APP_ID), config.get(CONF_DID))
+
+        if config.get(CONF_HOST) is None:
+            self._host = "api.gizwits.com"
+        else:
+            self._host = config.get(CONF_HOST)
+
+        if config.get(CONF_APP_ID) is None:
+            self._app_id = "50b40b4e57114e6ba87bd46b9abe71d8"
+        else:
+            self._app_id = config.get(CONF_APP_ID)
+
+        self._thermostat = Hy09rfThermostat(config.get(CONF_USERNAME), config.get(CONF_PASSWORD), self._host, self._app_id, config.get(CONF_DID))
 
         if config.get(CONF_NAME) is None:
             self._name = "HY09RF"
