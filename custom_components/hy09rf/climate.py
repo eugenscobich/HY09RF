@@ -74,21 +74,20 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         self._thermostat = Hy09rfThermostat(config.get(CONF_HOST), config.get(CONF_APP_ID), config.get(CONF_USERNAME), config.get(CONF_PASSWORD), config.get(CONF_DID))
 
         self._name = config.get(CONF_NAME)
-        self._min_temp = DEFAULT_MIN_TEMP
-        self._max_temp = DEFAULT_MAX_TEMP
-        self._hysteresis = None
-        self._room_temp = None
+        self._thermostat_set_temperature_min = DEFAULT_MIN_TEMP
+        self._thermostat_set_temperature_max = DEFAULT_MAX_TEMP
+        self._thermostat_temperature_compensate = None
         self._external_temp = None
 
         self._away_set_point = DEFAULT_MIN_TEMP
-        self._manual_set_point = DEFAULT_MIN_TEMP
+        self._manual_set_point = DEFAULT_MAX_TEMP
 
         self._preset_mode = None
 
         self._thermostat_current_action = None
         self._thermostat_current_mode = None
-        self._thermostat_current_temp = None
-        self._thermostat_target_temp = None
+        self._thermostat_room_temperature = None
+        self._thermostat_set_temperature = None
 
         self._attr_name = self._name
         self._attr_unique_id = config.get(CONF_UNIQUE_ID)
@@ -147,12 +146,12 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return 12.5 #self._thermostat_current_temp
+        return self._thermostat_room_temperature + self._thermostat_temperature_compensate
 
     @property
     def target_temperature(self):
         """Return the temperature we try to reach."""
-        return self._thermostat_target_temp
+        return self._thermostat_set_temperature
 
     @property
     def supported_features(self):
@@ -171,12 +170,12 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def min_temp(self):
         """Return the minimum temperature."""
-        return 10 #self._min_temp
+        return self._thermostat_set_temperature_min
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
-        return 50 #self._max_temp
+        return self._thermostat_set_temperature_max
 
     @property
     def extra_state_attributes(self):
@@ -186,8 +185,8 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             'manual_set_point': self._manual_set_point,
             'external_temp': self._external_temp,
             'room_temp': self._room_temp,
-            'current_temp': self._thermostat_current_temp,
-            'target_temp': self._thermostat_target_temp
+            'current_temp': self._thermostat_room_temperature,
+            'target_temp': self._thermostat_set_temperature
         }
 
     async def async_added_to_hass(self):
@@ -260,13 +259,17 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             return
 
         # Temperatures
-        self._room_temp = data.get("room_temperature")
-        self._thermostat_current_temp = data.get("room_temperature")
-        self._hysteresis = data.get("room_temperature_compensate")
-        self._min_temp = data.get("set_temperature_min")
-        self._max_temp = data.get("set_temperature_max")
+        self._thermostat_room_temperature = float(data.get("room_temperature"))
+        self._thermostat_set_temperature = float(data.get("set_temperature"))
+        self._thermostat_set_temperature_min = float(data.get("set_temperature_min"))
+        self._thermostat_set_temperature_max = float(data.get("set_temperature_max"))
+        self._thermostat_temperature_compensate = float(data.get("room_temperature_compensate"))
 
-        self._thermostat_target_temp = data.get("set_temperature")
+        _LOGGER.warning("_thermostat_room_temperature %s", self._thermostat_room_temperature)
+        _LOGGER.warning("_thermostat_set_temperature %s", self._thermostat_set_temperature)
+        _LOGGER.warning("_thermostat_set_temperature_min %s", self._thermostat_set_temperature_min)
+        _LOGGER.warning("_thermostat_set_temperature_max %s", self._thermostat_set_temperature_max)
+        _LOGGER.warning("_thermostat_temperature_compensate %s", self._thermostat_temperature_compensate)
 
         # Thermostat modes & status
         if data.get("power") == 0:
@@ -294,4 +297,4 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             "Thermostat %s action=%s mode=%s",
             self._name, self._thermostat_current_action, self._thermostat_current_mode
         )
-        _LOGGER.warning("Climate %s", self)
+        
