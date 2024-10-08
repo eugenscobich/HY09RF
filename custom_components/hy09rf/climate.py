@@ -262,6 +262,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         # Temperatures
         self._room_temp = data.get("room_temperature")
+        self._thermostat_current_temp = data.get("room_temperature")
         self._hysteresis = data.get("room_temperature_compensate")
         self._min_temp = data.get("set_temperature_min")
         self._max_temp = data.get("set_temperature_max")
@@ -294,3 +295,4 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             "Thermostat %s action=%s mode=%s",
             self._name, self._thermostat_current_action, self._thermostat_current_mode
         )
+        _LOGGER.warning("Climate %s", self)
