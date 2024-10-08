@@ -96,7 +96,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def name(self):
         """Return thermostat name"""
-        return "Eugen bla bla bla" #self._name
+        return self._name
 
     @property
     def precision(self):
@@ -147,7 +147,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return self._thermostat_current_temp
+        return 12.5 #self._thermostat_current_temp
 
     @property
     def target_temperature(self):
@@ -171,12 +171,12 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def min_temp(self):
         """Return the minimum temperature."""
-        return self._min_temp
+        return 10 #self._min_temp
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
-        return self._max_temp
+        return 50 #self._max_temp
 
     @property
     def extra_state_attributes(self):
