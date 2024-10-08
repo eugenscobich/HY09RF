@@ -104,9 +104,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     def temperature_unit(self):
         """Return the unit of measurement."""
         # todo consult argument C_F
-        if self._thermostat_C_F is None:
-            return None
-        elif self._thermostat_C_F is True:
+        if self._thermostat_C_F is True:
             return UnitOfTemperature.FAHRENHEIT
         else:
             return UnitOfTemperature.CELSIUS
