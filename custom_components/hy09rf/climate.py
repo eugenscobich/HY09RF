@@ -101,6 +101,9 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         self._thermostat_C_F = None
 
+        self._attr_name = self._name
+        self._attr_unique_id = config.get(CONF_UNIQUE_ID)
+
     @property
     def name(self):
         """Return thermostat name"""
@@ -219,7 +222,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         else:
             await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
         
-        await self.async_update()            
+        
         self.async_write_ha_state()
 
     async def async_turn_off(self):
