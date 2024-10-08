@@ -188,7 +188,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             'away_set_point': self._away_set_point,
             'manual_set_point': self._manual_set_point,
             'external_temp': self._external_temp,
-            'room_temp': self._room_temp,
+            'room_temp': self._thermostat_room_temperature,
             'current_temp': self._thermostat_room_temperature,
             'target_temp': self._thermostat_set_temperature
         }
