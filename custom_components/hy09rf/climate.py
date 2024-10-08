@@ -208,7 +208,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             target_temp = float(kwargs.get(ATTR_TEMPERATURE))
 
-            await self._thermostat.setAttr({ "set_temperature": target_temp, "work_mode": 0 })
+            await self._thermostat.setAttr(self._hass, { "set_temperature": target_temp, "work_mode": 0 })
 
             # Save temperatures for future use
             if self._preset_mode == PRESET_AWAY:
@@ -221,13 +221,13 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     async def async_set_hvac_mode(self, hvac_mode) -> None:
         """Set operation mode."""
         if hvac_mode == HVACMode.OFF:
-            await self._thermostat.setAttr({ "power": 0 })
+            await self._thermostat.setAttr(self._hass, { "power": 0 })
         else:
-            await self._thermostat.setAttr({ "power": 1 })
+            await self._thermostat.setAttr(self._hass, { "power": 1 })
             if hvac_mode == HVACMode.AUTO:
-                await self._thermostat.setAttr({ "power": 1, "work_mode": 1 })
+                await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 1 })
             elif hvac_mode == HVACMode.HEAT or hvac_mode == HVACMode.HEAT_COOL:
-                await self._thermostat.setAttr({ "power": 1, "work_mode": 0 })
+                await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode) -> None:
@@ -255,7 +255,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
     async def async_update(self) -> None:
         """Get thermostat info"""
-        data = await self._thermostat.deviceAttrs()
+        data = await self._thermostat.deviceAttrs(self._hass)
 
         if not data:
             return

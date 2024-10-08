@@ -3,7 +3,8 @@ import json
 import logging
 import time
 from datetime import datetime
-import homeassistant.helpers.httpx_client
+from homeassistant.helpers.httpx_client import get_async_client
+from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -24,10 +25,10 @@ class Hy09rfThermostat:
         self._did = did
         self._token = None
 
-    async def login(self):
+    async def login(self, hass: HomeAssistant):
         params = {'username': self._username, 'password': self._password}
         headers = {"X-Gizwits-Application-Id": self._appId}
-        async with homeassistant.helpers.httpx_client.get_async_client() as client:
+        async with get_async_client(hass) as client:
             try:
                 response = await client.post("https://" + self._host + "/app/login", headers=headers, json=params)
                 if response.status_code // 100 == 2:
@@ -40,13 +41,13 @@ class Hy09rfThermostat:
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    async def bindings(self):
+    async def bindings(self, hass: HomeAssistant):
         if self._token is None:
-            await self.login()
-            await self.bindings()
+            await self.login(hass)
+            await self.bindings(hass)
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        async with homeassistant.helpers.httpx_client.get_async_client() as client:
+        async with get_async_client(hass) as client:
             try:
                 response = await client.get("https://" + self._host + "/app/bindings", headers=headers)
                 if response.status_code // 100 == 2:
@@ -54,21 +55,21 @@ class Hy09rfThermostat:
                     self._did = responseJson.get("devices")[0].get("did")
                     _LOGGER.warning("Thermostat bindings result: %s", responseJson)
                 elif response.status_code == 400:
-                    await self.login()
-                    await self.bindings()
+                    await self.login(hass)
+                    await self.bindings(hass)
                 else:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    async def deviceState(self):
+    async def deviceState(self, hass: HomeAssistant):
         if self._token is None:
-            await self.login()
-            await self.deviceState()
+            await self.login(hass)
+            await self.deviceState(hass)
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
 
-        async with homeassistant.helpers.httpx_client.get_async_client() as client:
+        async with get_async_client(hass) as client:
             try:
                 response = await client.get("https://" + self._host + "/app/devices/" + self._did, headers=headers)
                 if response.status_code // 100 == 2:
@@ -76,25 +77,25 @@ class Hy09rfThermostat:
                     self._isOnline = responseJson.get("is_online")
                     _LOGGER.warning("Thermostat device state: %s", responseJson)
                 elif response.status_code == 400:
-                    await self.login()
-                    await self.deviceState()
+                    await self.login(hass)
+                    await self.deviceState(hass)
                 else:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    async def deviceAttrs(self):
+    async def deviceAttrs(self, hass: HomeAssistant):
         if self._token is None:
-            await self.login()
-            return await self.deviceAttrs()
+            await self.login(hass)
+            return await self.deviceAttrs(hass)
 
         if self._did is None:
-            await self.bindings()
-            return await self.deviceAttrs() 
+            await self.bindings(hass)
+            return await self.deviceAttrs(hass) 
 
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
 
-        async with homeassistant.helpers.httpx_client.get_async_client() as client:
+        async with get_async_client(hass) as client:
             try:
                 response = await client.get("https://" + self._host + "/app/devdata/" + self._did + "/latest", headers=headers)
                 if response.status_code // 100 == 2:
@@ -102,17 +103,17 @@ class Hy09rfThermostat:
                     _LOGGER.warning("Thermostat device attributes result: %s", responseJson)
                     return responseJson
                 elif response.status_code == 400:
-                    await self.login()
-                    return await self.deviceAttrs()
+                    await self.login(hass)
+                    return await self.deviceAttrs(hass)
                 else:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    async def setAttr(self, attrs):
+    async def setAttr(self, hass: HomeAssistant, attrs):
         if self._token is None:
-            await self.login()
-            return await self.setAttr(attrs)
+            await self.login(hass)
+            return await self.setAttr(hass, attrs)
         
         if self._did is None:
             await self.bindings()
@@ -120,14 +121,14 @@ class Hy09rfThermostat:
         
         params = {"attrs":  attrs}
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        async with homeassistant.helpers.httpx_client.get_async_client() as client:
+        async with get_async_client(hass) as client:
             try:
                 response = await client.post("https://" + self._host + "/app/control/" + self._did, headers=headers, json=params)
                 if response.status_code == 200:
                     _LOGGER.warning("Thermostat set device attributes result OK")
                 elif response.status_code == 400:
-                    self.login()
-                    self.setAttr(attrs)
+                    self.login(hass)
+                    self.setAttr(hass, attrs)
                 else:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
