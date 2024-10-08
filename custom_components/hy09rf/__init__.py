@@ -8,7 +8,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_UNIQUE_ID = 'unique_id'
 CONF_HOST = 'host'
-CONF_APP_ID = 'appId'
+CONF_APP_ID = 'app_id'
 CONF_USERNAME = 'username'
 CONF_PASSWORD = 'password'
 CONF_DID = 'did'
