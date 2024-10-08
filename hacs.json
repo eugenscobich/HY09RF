@@ -3,6 +3,6 @@
   "content_in_root": false,
   "domains": ["climate"],  
   "homeassistant": "0.1.0",
-  "iot_class": "Public Polling",
+  "iot_class": "cloud_polling",
   "render_readme": true
 }

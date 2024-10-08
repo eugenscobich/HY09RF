@@ -1,78 +1,162 @@
-import broadlink
+import http.client
+import json
 import logging
 import time
 from datetime import datetime
 
-from homeassistant.const import (
-    PRECISION_HALVES
-)
-
 _LOGGER = logging.getLogger(__name__)
 
-BROADLINK_ACTIVE = 1
-BROADLINK_IDLE = 0
-BROADLINK_POWER_ON = 1
-BROADLINK_POWER_OFF = 0
-BROADLINK_MODE_MANUAL = 0
-BROADLINK_MODE_AUTO = 1
-BROADLINK_SENSOR_INTERNAL = 0
-BROADLINK_SENSOR_EXTERNAL = 1
-BROADLINK_SENSOR_BOTH = 2
-BROADLINK_TEMP_AUTO = 0
-BROADLINK_TEMP_MANUAL = 1
-
-CONF_HOST = 'host'
-CONF_USE_EXTERNAL_TEMP = 'use_external_temp'
-CONF_SCHEDULE = 'schedule'
 CONF_UNIQUE_ID = 'unique_id'
-CONF_PRECISION = 'precision'
-CONF_USE_COOLING = 'use_cooling'
+CONF_HOST = 'host'
+CONF_APP_ID = 'appId'
+CONF_USERNAME = 'username'
+CONF_PASSWORD = 'password'
+CONF_DID = 'did'
 
-DEFAULT_SCHEDULE = 0
-DEFAULT_USE_EXTERNAL_TEMP = True
-DEFAULT_PRECISION = PRECISION_HALVES
-DEFAULT_USE_COOLING = False
+class Hy09rfThermostat:
 
-
-class BroadlinkThermostat:
-
-    def __init__(self, host):
+    def __init__(self, host, appId, username, password, did=None):
         self._host = host
+        self._appId = appId
+        self._username = username
+        self._password = password
+        self._did = did
+        self._token = None
 
-    def device(self):
-        max_attempt = 3
-        for attempt in range(0, max_attempt):
-            try:
-                attempt += 1
-                broadlink.timeout = 1
-                return broadlink.hello(self._host, timeout=3)
-            except broadlink.exceptions.NetworkTimeoutError as e:
-                if attempt == max_attempt:
-                    _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-
-    def set_time(self):
-        """Set thermostat time"""
+    def login(self):
+        params = {'username': self._username, 'password': self._password}
+        headers = {"X-Gizwits-Application-Id": self._appId}
         try:
-            device = self.device()
-            if device.auth():
-                now = datetime.now()
-                device.set_time(now.hour,
-                                now.minute,
-                                now.second,
-                                now.weekday() + 1)
-                _LOGGER.debug("Thermostat date / time is set")
+            body = json.dumps(params)
+            connection = http.client.HTTPSConnection(self._host)
+            connection.request("POST", "/app/login", body=body, headers=headers)
+            response = connection.getresponse()
+            response_data = response.read().decode()
+            if 200 == response.status:
+                response = json.loads(response_data)
+                self._uid = response.get("uid")
+                self._token = response.get("token")
+                return response
+            else:
+                raise Exception(f"Error: {response.status}, Response: {response_data}")
         except Exception as e:
-            _LOGGER.error("Thermostat %s set_time error: %s", self._host, str(e))
-
-    def read_status(self):
-        """Read thermostat data"""
-        data = None
-        try:
-            device = self.device()
-            if device.auth():
-                data = device.get_full_status()
-                _LOGGER.debug("Received %s thermostat data: %s", self._host, data)
-        except Exception as e:
-            _LOGGER.warning("Thermostat %s read_status() error: %s", self._host, str(e))
+            print(f"An error occurred: {e}")
+            raise
         finally:
-            return data
+            connection.close()
+
+    def bindings(self):
+        if self._token is None:
+            self.login()
+            return self.bindings()
+        
+        headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
+        try:
+            connection = http.client.HTTPSConnection(self._host)
+            connection.request("GET", "/app/bindings", headers=headers)
+            response = connection.getresponse()
+            response_data = response.read().decode()
+            if 200 <= response.status < 300:
+                response = json.loads(response_data)
+                self._did = response.get("devices")[0].get("did")
+                return response
+            elif response.status == 400:
+                self.login()
+                return self.bindings()
+            else:
+                raise Exception(f"Error: {response.status}, Response: {response_data}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+        finally:
+            connection.close()
+
+    def deviceState(self):
+        if self._token is None:
+            self.login()
+            return self.deviceState()
+        
+        headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
+        try:
+            connection = http.client.HTTPSConnection(self._host)
+            connection.request("GET", "/app/devices/" + self._did, headers=headers)
+            response = connection.getresponse()
+            response_data = response.read().decode()
+            if 200 <= response.status < 300:
+                response = json.loads(response_data)
+                self._isOnline = response.get("is_online")
+                return response
+            elif response.status == 400:
+                self.login()
+                return self.deviceState()
+            else:
+                raise Exception(f"Error: {response.status}, Response: {response_data}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+        finally:
+            connection.close()
+
+    def deviceAttrs(self):
+        headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
+        try:
+            connection = http.client.HTTPSConnection(self._host)
+            connection.request("GET", "/app/devdata/" + self._did + "/latest", headers=headers)
+            response = connection.getresponse()
+            response_data = response.read().decode()
+            if 200 <= response.status < 300:
+                return json.loads(response_data)
+            elif response.status == 400:
+                self.login()
+                return self.deviceAttrs()
+            else:
+                raise Exception(f"Error: {response.status}, Response: {response_data}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+        finally:
+            connection.close()
+
+    def setAttr(self, attrs):
+        if self._token is None:
+            self.login()
+            return self.setAttr(attrs)
+        
+        if self._did is None:
+            self.bindings()
+            return self.setAttr(attrs)
+        
+        params = {"attrs":  attrs}
+        headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
+        try:
+            body = json.dumps(params)
+            connection = http.client.HTTPSConnection(self._host)
+            connection.request("POST", "/app/control/" + self._did, body=body, headers=headers)
+            response = connection.getresponse()
+            response_data = response.read().decode()
+            if 200 <= response.status < 300:
+                response = json.loads(response_data)
+                return response
+            elif response.status == 400:
+                self.login()
+                return self.setAttr(attrs)
+            else:
+                raise Exception(f"Error: {response.status}, Response: {response_data}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            raise
+        finally:
+            connection.close()
+
+instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
+print(instance.login())
+print(instance.bindings())
+print(instance.deviceState())
+deviceAttrs = instance.deviceAttrs()
+print(deviceAttrs)
+if deviceAttrs.get("attr").get("child_lock") == 1:
+    print(instance.setAttr({ "child_lock": False }))
+else:
+    print(instance.setAttr({ "child_lock": True }))
+time.sleep(10)
+print(instance.deviceAttrs())
