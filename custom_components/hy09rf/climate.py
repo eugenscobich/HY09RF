@@ -192,8 +192,9 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             target_temp = float(kwargs.get(ATTR_TEMPERATURE))
             await self._thermostat.setAttr(self._hass, { "set_temperature": target_temp, "work_mode": 0 })
-        self._thermostat_set_temperature = target_temp
+        await self.async_update()
         self.async_write_ha_state()
+        
 
     async def async_set_hvac_mode(self, hvac_mode):
         """Set operation mode."""
@@ -205,6 +206,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
                 await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 1 })
             elif hvac_mode == HVACMode.HEAT:
                 await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
+        await self.async_update()                
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode):
@@ -216,6 +218,8 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 1 })
         else:
             await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
+        
+        await self.async_update()            
         self.async_write_ha_state()
 
     async def async_turn_off(self):
