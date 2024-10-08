@@ -101,7 +101,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def precision(self) -> float:
         """Return the precision of the system."""
-        return self._precision
+        return PRECISION_HALVES
 
     @property
     def temperature_unit(self) -> str:
