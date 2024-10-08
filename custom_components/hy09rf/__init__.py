@@ -35,7 +35,7 @@ class Hy09rfThermostat:
                     responseJson =  response.json()
                     self._uid = responseJson.get("uid")
                     self._token = responseJson.get("token")
-                    _LOGGER.warning("Thermostat login result: %s", responseJson)
+                    _LOGGER.debug("Thermostat login result: %s", responseJson)
                 else:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
@@ -53,7 +53,7 @@ class Hy09rfThermostat:
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
                     self._did = responseJson.get("devices")[0].get("did")
-                    _LOGGER.warning("Thermostat bindings result: %s", responseJson)
+                    _LOGGER.debug("Thermostat bindings result: %s", responseJson)
                 elif response.status_code == 400:
                     await self.login(hass)
                     await self.bindings(hass)
@@ -75,7 +75,7 @@ class Hy09rfThermostat:
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
                     self._isOnline = responseJson.get("is_online")
-                    _LOGGER.warning("Thermostat device state: %s", responseJson)
+                    _LOGGER.debug("Thermostat device state: %s", responseJson)
                 elif response.status_code == 400:
                     await self.login(hass)
                     await self.deviceState(hass)
@@ -100,7 +100,7 @@ class Hy09rfThermostat:
                 response = await client.get("https://" + self._host + "/app/devdata/" + self._did + "/latest", headers=headers)
                 if response.status_code // 100 == 2:
                     responseJson =  response.json()
-                    _LOGGER.warning("Thermostat device attributes result: %s", responseJson)
+                    _LOGGER.debug("Thermostat device attributes result: %s", responseJson)
                     return responseJson
                 elif response.status_code == 400:
                     await self.login(hass)
@@ -125,7 +125,7 @@ class Hy09rfThermostat:
             try:
                 response = await client.post("https://" + self._host + "/app/control/" + self._did, headers=headers, json=params)
                 if response.status_code == 200:
-                    _LOGGER.warning("Thermostat set device attributes result OK")
+                    _LOGGER.debug("Thermostat set device attributes result OK")
                 elif response.status_code == 400:
                     self.login(hass)
                     self.setAttr(hass, attrs)
@@ -133,16 +133,3 @@ class Hy09rfThermostat:
                     raise Exception(f"Error: {response.status_code}, Response: {response.text}")
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-
-'''
-import asyncio
-instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
-deviceAttrs = asyncio.run(instance.deviceAttrs())
-print(deviceAttrs)
-if deviceAttrs.get("attr").get("child_lock") == 1:
-    asyncio.run(instance.setAttr({ "child_lock": False }))
-else:
-    asyncio.run(instance.setAttr({ "child_lock": True }))
-time.sleep(10)
-asyncio.run(instance.deviceAttrs())
-'''
