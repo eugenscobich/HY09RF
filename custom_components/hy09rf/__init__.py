@@ -98,6 +98,14 @@ class Hy09rfThermostat:
             connection.close()
 
     def deviceAttrs(self):
+        if self._token is None:
+            self.login()
+            return self.deviceAttrs()
+
+        if self._did is None:
+            self.bindings()
+            return self.deviceAttrs() 
+
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
         try:
             connection = http.client.HTTPSConnection(self._host)
