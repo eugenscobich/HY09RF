@@ -17,7 +17,7 @@ CONF_DID = 'did'
 
 class Hy09rfThermostat:
 
-    def __init__(self, host, appId, username, password, did=None):
+    def __init__(self, username, password, host="api.gizwits.com", appId="50b40b4e57114e6ba87bd46b9abe71d8", did=None):
         self._host = host
         self._appId = appId
         self._username = username

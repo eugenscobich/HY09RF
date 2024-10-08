@@ -34,8 +34,6 @@ from homeassistant.components.climate.const import (
 
 from homeassistant.const import (
     PRECISION_HALVES,
-    PRECISION_WHOLE,
-    PRECISION_TENTHS,
     ATTR_TEMPERATURE,
     UnitOfTemperature,
     CONF_NAME
@@ -48,16 +46,13 @@ _LOGGER = logging.getLogger(__name__)
 PARALLEL_UPDATES = 0
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_NAME): cv.string,
+    vol.Optional(CONF_HOST): cv.string,
+    vol.Optional(CONF_NAME): cv.string,
     vol.Optional(CONF_UNIQUE_ID): cv.string,
-    vol.Required(CONF_APP_ID): cv.string,
+    vol.Optional(CONF_APP_ID): cv.string,
     vol.Required(CONF_USERNAME): cv.string,
     vol.Required(CONF_PASSWORD): cv.string,
     vol.Optional(CONF_DID): cv.string
-    #vol.Optional(CONF_USE_EXTERNAL_TEMP, default=DEFAULT_USE_EXTERNAL_TEMP): cv.boolean,
-    #vol.Optional(CONF_PRECISION, default=DEFAULT_PRECISION): vol.In([PRECISION_HALVES, PRECISION_WHOLE, PRECISION_TENTHS]),
-    #vol.Optional(CONF_USE_COOLING, default=DEFAULT_USE_COOLING): cv.boolean
 })
 
 
@@ -71,9 +66,13 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
     def __init__(self, hass, config):
         self._hass = hass
-        self._thermostat = Hy09rfThermostat(config.get(CONF_HOST), config.get(CONF_APP_ID), config.get(CONF_USERNAME), config.get(CONF_PASSWORD), config.get(CONF_DID))
+        self._thermostat = Hy09rfThermostat(config.get(CONF_USERNAME), config.get(CONF_PASSWORD), config.get(CONF_HOST), config.get(CONF_APP_ID), config.get(CONF_DID))
 
-        self._name = config.get(CONF_NAME)
+        if config.get(CONF_NAME) is None:
+            self._name = "HY09RF"
+        else:
+            self._name = config.get(CONF_NAME)
+
         self._thermostat_set_temperature = None
         self._thermostat_set_temperature_min = DEFAULT_MIN_TEMP
         self._thermostat_set_temperature_max = DEFAULT_MAX_TEMP
@@ -88,10 +87,8 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         self._thermostat_current_action = None
         self._thermostat_current_mode = None
-        
 
-        self._attr_name = self._name
-        self._attr_unique_id = config.get(CONF_UNIQUE_ID)
+        self._thermostat_C_F = None
 
     @property
     def name(self):
@@ -107,7 +104,12 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     def temperature_unit(self):
         """Return the unit of measurement."""
         # todo consult argument C_F
-        return UnitOfTemperature.CELSIUS
+        if self._thermostat_C_F is None:
+            return None
+        elif self._thermostat_C_F is True:
+            return UnitOfTemperature.FAHRENHEIT
+        else:
+            return UnitOfTemperature.CELSIUS
 
     @property
     def hvac_mode(self):
@@ -162,15 +164,6 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         """Return the list of supported features."""
         return ClimateEntityFeature.TARGET_TEMPERATURE | ClimateEntityFeature.PRESET_MODE | ClimateEntityFeature.TURN_OFF | ClimateEntityFeature.TURN_ON
 
-    # Backward compatibility until 2023.4
-    def get_converter(self):
-        try:
-            from homeassistant.util.unit_conversion import TemperatureConverter
-            convert = TemperatureConverter.convert
-        except ModuleNotFoundError or ImportError as ee:
-            from homeassistant.util.temperature import convert
-        return convert
-
     @property
     def min_temp(self):
         """Return the minimum temperature."""
@@ -181,43 +174,16 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         """Return the maximum temperature."""
         return self._thermostat_set_temperature_max
 
-    @property
-    def extra_state_attributes(self):
-        """Return the attribute(s) of the sensor"""
-        return {
-            'away_set_point': self._away_set_point,
-            'manual_set_point': self._manual_set_point,
-            'external_temp': self._external_temp,
-            'room_temp': self._thermostat_room_temperature,
-            'current_temp': self._thermostat_room_temperature,
-            'target_temp': self._thermostat_set_temperature
-        }
-
     async def async_added_to_hass(self):
         """Run when entity about to added."""
         await super().async_added_to_hass()
-
-        # Restore
-        last_state = await self.async_get_last_state()
-
-        if last_state is not None:
-            for param in ['away_set_point', 'manual_set_point']:
-                if param in last_state.attributes:
-                    setattr(self, '_{0}'.format(param), last_state.attributes[param])
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             target_temp = float(kwargs.get(ATTR_TEMPERATURE))
-
             await self._thermostat.setAttr(self._hass, { "set_temperature": target_temp, "work_mode": 0 })
-
-            # Save temperatures for future use
-            if self._preset_mode == PRESET_AWAY:
-                self._away_set_point = target_temp
-            elif self._preset_mode == PRESET_NONE:
-                self._manual_set_point = target_temp
-
+        self._thermostat_set_temperature = target_temp
         self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode):
@@ -228,23 +194,19 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             await self._thermostat.setAttr(self._hass, { "power": 1 })
             if hvac_mode == HVACMode.AUTO:
                 await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 1 })
-            elif hvac_mode == HVACMode.HEAT or hvac_mode == HVACMode.HEAT_COOL:
+            elif hvac_mode == HVACMode.HEAT:
                 await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
         self.async_write_ha_state()
 
     async def async_set_preset_mode(self, preset_mode):
         """Set new preset mode."""
         self._preset_mode = preset_mode
-
-#        device = self._thermostat.device()
-#        if device.auth():
-#            device.set_power(BROADLINK_POWER_ON)
-#            device.set_mode(BROADLINK_MODE_MANUAL, self._thermostat_loop_mode, self.thermostat_get_sensor())
-#            if self._preset_mode == PRESET_AWAY:
-#                device.set_temp(self._away_set_point)
-#            elif self._preset_mode == PRESET_NONE:
-#                device.set_temp(self._manual_set_point)
-
+        if preset_mode == PRESET_AWAY:
+            await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 3 })
+        elif self._thermostat_current_mode == HVACMode.AUTO:
+            await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 1 })
+        else:
+            await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
         self.async_write_ha_state()
 
     async def async_turn_off(self):
@@ -269,12 +231,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         self._thermostat_set_temperature_min = float(attr.get("set_temperature_min"))
         self._thermostat_set_temperature_max = float(attr.get("set_temperature_max"))
         self._thermostat_temperature_compensate = float(attr.get("room_temperature_compensate"))
-
-        _LOGGER.warning("_thermostat_room_temperature %s", self._thermostat_room_temperature)
-        _LOGGER.warning("_thermostat_set_temperature %s", self._thermostat_set_temperature)
-        _LOGGER.warning("_thermostat_set_temperature_min %s", self._thermostat_set_temperature_min)
-        _LOGGER.warning("_thermostat_set_temperature_max %s", self._thermostat_set_temperature_max)
-        _LOGGER.warning("_thermostat_temperature_compensate %s", self._thermostat_temperature_compensate)
+        self._thermostat_C_F = bool(attr.get("C_F"))
 
         # Thermostat modes & status
         if attr.get("power") == 0:
@@ -284,14 +241,22 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             self._thermostat_current_action = HVACAction.OFF
         else:
             # Set mode to manual when overridden auto mode or thermostat is in manual mode
-            if attr.get("work_mode") == 0:
+            if attr.get("work_mode") == 0 or attr.get("work_mode") == 3:
                 self._thermostat_current_mode = HVACMode.HEAT
                 if attr.get("heating_state") == 1:
                     self._thermostat_current_action = HVACAction.HEATING
                 else:
                     self._thermostat_current_action = HVACAction.IDLE
+            elif attr.get("work_mode") == 2:
+                # away
+                self._thermostat_current_mode = HVACMode.HEAT
+                self._preset_mode = PRESET_AWAY
+                if attr.get("heating_state") == 1:
+                    self._thermostat_current_action = HVACAction.HEATING
+                else:
+                    self._thermostat_current_action = HVACAction.IDLE
             else:
-                # Unset away mode
+                # Unset auto mode
                 self._preset_mode = PRESET_NONE
                 self._thermostat_current_mode = HVACMode.AUTO
                 if attr.get("heating_state") == 1:
