@@ -1,5 +1,4 @@
 import httpx
-import http.client
 import json
 import logging
 import time
@@ -24,126 +23,108 @@ class Hy09rfThermostat:
         self._did = did
         self._token = None
 
-    def login(self):
+    async def login(self):
         params = {'username': self._username, 'password': self._password}
         headers = {"X-Gizwits-Application-Id": self._appId}
-        try:
-            body = json.dumps(params)
-            connection = http.client.HTTPSConnection(self._host)
-            connection.request("POST", "/app/login", body=body, headers=headers)
-            response = connection.getresponse()
-            response_data = response.read().decode()
-            if 200 == response.status:
-                response = json.loads(response_data)
-                self._uid = response.get("uid")
-                self._token = response.get("token")
-                _LOGGER.info("Thermostat login result: %s", response)
-                return response
-            else:
-                raise Exception(f"Error: {response.status}, Response: {response_data}")
-        except Exception as e:
-            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-        finally:
-            connection.close()
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post("https://" + self._host + "/app/login", headers=headers, json=params)
+                if response.status_code // 100 == 2:
+                    responseJson =  response.json()
+                    self._uid = responseJson.get("uid")
+                    self._token = responseJson.get("token")
+                    _LOGGER.warning("Thermostat login result: %s", responseJson)
+                else:
+                    raise Exception(f"Error: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    def bindings(self):
+    async def bindings(self):
         if self._token is None:
-            self.login()
-            return self.bindings()
+            await self.login()
+            await self.bindings()
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        try:
-            connection = http.client.HTTPSConnection(self._host)
-            connection.request("GET", "/app/bindings", headers=headers)
-            response = connection.getresponse()
-            response_data = response.read().decode()
-            if 200 <= response.status < 300:
-                response = json.loads(response_data)
-                self._did = response.get("devices")[0].get("did")
-                _LOGGER.info("Thermostat bindings result: %s", response)
-                return response
-            elif response.status == 400:
-                self.login()
-                return self.bindings()
-            else:
-                raise Exception(f"Error: {response.status}, Response: {response_data}")
-        except Exception as e:
-            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-        finally:
-            connection.close()
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get("https://" + self._host + "/app/bindings", headers=headers)
+                if response.status_code // 100 == 2:
+                    responseJson =  response.json()
+                    self._did = responseJson.get("devices")[0].get("did")
+                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                elif response.status_code == 400:
+                    await self.login()
+                    await self.bindings()
+                else:
+                    raise Exception(f"Error: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-    def deviceState(self):
+    async def deviceState(self):
         if self._token is None:
-            self.login()
-            return self.deviceState()
+            await self.login()
+            await self.deviceState()
         
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        try:
-            connection = http.client.HTTPSConnection(self._host)
-            connection.request("GET", "/app/devices/" + self._did, headers=headers)
-            response = connection.getresponse()
-            response_data = response.read().decode()
-            if 200 <= response.status < 300:
-                response = json.loads(response_data)
-                self._isOnline = response.get("is_online")
-                _LOGGER.info("Thermostat device state result: %s", response)
-                return response
-            elif response.status == 400:
-                self.login()
-                return self.deviceState()
-            else:
-                raise Exception(f"Error: {response.status}, Response: {response_data}")
-        except Exception as e:
-            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-        finally:
-            connection.close()
 
-    def deviceAttrs(self):
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get("https://" + self._host + "/app/devices/" + self._did, headers=headers)
+                if response.status_code // 100 == 2:
+                    responseJson =  response.json()
+                    self._isOnline = responseJson.get("is_online")
+                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                elif response.status_code == 400:
+                    await self.login()
+                    await self.deviceState()
+                else:
+                    raise Exception(f"Error: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
+
+    async def deviceAttrs(self):
         if self._token is None:
-            self.login()
-            return self.deviceAttrs()
+            await self.login()
+            return await self.deviceAttrs()
 
         if self._did is None:
-            self.bindings()
-            return self.deviceAttrs() 
+            await self.bindings()
+            return await self.deviceAttrs() 
 
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        try:
-            connection = http.client.HTTPSConnection(self._host)
-            connection.request("GET", "/app/devdata/" + self._did + "/latest", headers=headers)
-            response = connection.getresponse()
-            response_data = response.read().decode()
-            if 200 <= response.status < 300:
-                response = json.loads(response_data)
-                _LOGGER.info("Thermostat device attributes result: %s", response)
-                return response
-            elif response.status == 400:
-                self.login()
-                return self.deviceAttrs()
-            else:
-                raise Exception(f"Error: {response.status}, Response: {response_data}")
-        except Exception as e:
-            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-        finally:
-            connection.close()
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.get("https://" + self._host + "/app/devdata/" + self._did + "/latest", headers=headers)
+                if response.status_code // 100 == 2:
+                    responseJson =  response.json()
+                    _LOGGER.warning("Thermostat login bindings: %s", responseJson)
+                    return responseJson
+                elif response.status_code == 400:
+                    await self.login()
+                    return await self.deviceAttrs()
+                else:
+                    raise Exception(f"Error: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
     async def setAttr(self, attrs):
         if self._token is None:
-            self.login()
-            return self.setAttr(attrs)
+            await self.login()
+            return await self.setAttr(attrs)
         
         if self._did is None:
-            self.bindings()
-            return self.setAttr(attrs)
+            await self.bindings()
+            return await self.setAttr(attrs)
         
         params = {"attrs":  attrs}
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
         async with httpx.AsyncClient() as client:
             try:
-                response = await client.post("https://" + self._host + "/app/control/", headers=headers, json=params)
-                if response.status_code // 100 == 2:
-                    _LOGGER.info("Thermostat set device attributes result OK")
-                elif response.status == 400:
+                response = await client.post("https://" + self._host + "/app/control/" + self._did, headers=headers, json=params)
+                if response.status_code == 200:
+                    _LOGGER.warning("Thermostat set device attributes result OK")
+                elif response.status_code == 400:
                     self.login()
                     self.setAttr(attrs)
                 else:
@@ -151,15 +132,15 @@ class Hy09rfThermostat:
             except Exception as e:
                 _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-#instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
-#print(instance.login())
-#print(instance.bindings())
-#print(instance.deviceState())
-#deviceAttrs = instance.deviceAttrs()
-#print(deviceAttrs)
-#if deviceAttrs.get("attr").get("child_lock") == 1:
-#    print(instance.setAttr({ "child_lock": False }))
-#else:
-#    print(instance.setAttr({ "child_lock": True }))
-#time.sleep(10)
-#print(instance.deviceAttrs())
+'''
+import asyncio
+instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
+deviceAttrs = asyncio.run(instance.deviceAttrs())
+print(deviceAttrs)
+if deviceAttrs.get("attr").get("child_lock") == 1:
+    asyncio.run(instance.setAttr({ "child_lock": False }))
+else:
+    asyncio.run(instance.setAttr({ "child_lock": True }))
+time.sleep(10)
+asyncio.run(instance.deviceAttrs())
+'''
