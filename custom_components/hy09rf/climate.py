@@ -120,9 +120,6 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         """Return the list of available hvac operation modes.
         Need to be a subset of HVACMode.
         """
-        if self._use_cooling is True:
-            return [HVACMode.AUTO, HVACMode.HEAT_COOL, HVACMode.OFF]
-
         return [HVACMode.AUTO, HVACMode.HEAT, HVACMode.OFF]
 
     @property
