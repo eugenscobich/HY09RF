@@ -1,3 +1,4 @@
+import httpx
 import http.client
 import json
 import logging
@@ -126,7 +127,7 @@ class Hy09rfThermostat:
         finally:
             connection.close()
 
-    def setAttr(self, attrs):
+    async def setAttr(self, attrs):
         if self._token is None:
             self.login()
             return self.setAttr(attrs)
@@ -137,35 +138,28 @@ class Hy09rfThermostat:
         
         params = {"attrs":  attrs}
         headers = {"X-Gizwits-Application-Id": self._appId, "X-Gizwits-User-token": self._token}
-        try:
-            body = json.dumps(params)
-            connection = http.client.HTTPSConnection(self._host)
-            connection.request("POST", "/app/control/" + self._did, body=body, headers=headers)
-            response = connection.getresponse()
-            response_data = response.read().decode()
-            if 200 <= response.status < 300:
-                response = json.loads(response_data)
-                _LOGGER.info("Thermostat set device attributes result OK")
-                return response
-            elif response.status == 400:
-                self.login()
-                return self.setAttr(attrs)
-            else:
-                raise Exception(f"Error: {response.status}, Response: {response_data}")
-        except Exception as e:
-            _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
-        finally:
-            connection.close()
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post("https://" + self._host + "/app/control/", headers=headers, json=params)
+                if response.status_code // 100 == 2:
+                    _LOGGER.info("Thermostat set device attributes result OK")
+                elif response.status == 400:
+                    self.login()
+                    self.setAttr(attrs)
+                else:
+                    raise Exception(f"Error: {response.status_code}, Response: {response.text}")
+            except Exception as e:
+                _LOGGER.error("Thermostat %s network error: %s", self._host, str(e))
 
-instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
-print(instance.login())
-print(instance.bindings())
-print(instance.deviceState())
-deviceAttrs = instance.deviceAttrs()
-print(deviceAttrs)
-if deviceAttrs.get("attr").get("child_lock") == 1:
-    print(instance.setAttr({ "child_lock": False }))
-else:
-    print(instance.setAttr({ "child_lock": True }))
-time.sleep(10)
-print(instance.deviceAttrs())
+#instance = Hy09rfThermostat("euapi.gizwits.com", "50b40b4e57114e6ba87bd46b9abe71d8", "eugen.scobich@gmail.com", "bendery37")
+#print(instance.login())
+#print(instance.bindings())
+#print(instance.deviceState())
+#deviceAttrs = instance.deviceAttrs()
+#print(deviceAttrs)
+#if deviceAttrs.get("attr").get("child_lock") == 1:
+#    print(instance.setAttr({ "child_lock": False }))
+#else:
+#    print(instance.setAttr({ "child_lock": True }))
+#time.sleep(10)
+#print(instance.deviceAttrs())
