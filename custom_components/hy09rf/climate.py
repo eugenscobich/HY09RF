@@ -94,62 +94,63 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         self._attr_unique_id = config.get(CONF_UNIQUE_ID)
 
     @property
-    def name(self) -> str:
+    def name(self):
         """Return thermostat name"""
-        return self._name
+        return "Eugen bla bla bla" #self._name
 
     @property
-    def precision(self) -> float:
+    def precision(self):
         """Return the precision of the system."""
         return PRECISION_HALVES
 
     @property
-    def temperature_unit(self) -> str:
+    def temperature_unit(self):
         """Return the unit of measurement."""
+        # todo consult argument C_F
         return UnitOfTemperature.CELSIUS
 
     @property
-    def hvac_mode(self) -> str:
+    def hvac_mode(self):
         """Return hvac operation i.e. heat, cool mode.
         Need to be one of HVACMode.
         """
         return self._thermostat_current_mode
 
     @property
-    def hvac_modes(self) -> List[str]:
+    def hvac_modes(self):
         """Return the list of available hvac operation modes.
         Need to be a subset of HVACMode.
         """
         return [HVACMode.AUTO, HVACMode.HEAT, HVACMode.OFF]
 
     @property
-    def hvac_action(self) -> Optional[str]:
+    def hvac_action(self):
         """Return the current running hvac operation if supported.
         Need to be one of HVACAction.
         """
         return self._thermostat_current_action
 
     @property
-    def preset_mode(self) -> Optional[str]:
+    def preset_mode(self):
         """Return the current preset mode, e.g., home, away, temp.
         Requires ClimateEntityFeature.PRESET_MODE.
         """
         return self._preset_mode
 
     @property
-    def preset_modes(self) -> Optional[List[str]]:
+    def preset_modes(self):
         """Return a list of available preset modes.
         Requires ClimateEntityFeature.PRESET_MODE.
         """
         return [PRESET_NONE, PRESET_AWAY]
 
     @property
-    def current_temperature(self) -> Optional[float]:
+    def current_temperature(self):
         """Return the current temperature."""
         return self._thermostat_current_temp
 
     @property
-    def target_temperature(self) -> Optional[float]:
+    def target_temperature(self):
         """Return the temperature we try to reach."""
         return self._thermostat_target_temp
 
@@ -168,19 +169,17 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         return convert
 
     @property
-    def min_temp(self) -> float:
+    def min_temp(self):
         """Return the minimum temperature."""
-        return self.get_converter()(self._min_temp, UnitOfTemperature.CELSIUS,
-                                    self.temperature_unit)
+        return self._min_temp
 
     @property
-    def max_temp(self) -> float:
+    def max_temp(self):
         """Return the maximum temperature."""
-        return self.get_converter()(self._max_temp, UnitOfTemperature.CELSIUS,
-                                    self.temperature_unit)
+        return self._max_temp
 
     @property
-    def extra_state_attributes(self) -> dict:
+    def extra_state_attributes(self):
         """Return the attribute(s) of the sensor"""
         return {
             'away_set_point': self._away_set_point,
@@ -191,7 +190,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
             'target_temp': self._thermostat_target_temp
         }
 
-    async def async_added_to_hass(self) -> None:
+    async def async_added_to_hass(self):
         """Run when entity about to added."""
         await super().async_added_to_hass()
 
@@ -203,7 +202,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
                 if param in last_state.attributes:
                     setattr(self, '_{0}'.format(param), last_state.attributes[param])
 
-    async def async_set_temperature(self, **kwargs) -> None:
+    async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         if kwargs.get(ATTR_TEMPERATURE) is not None:
             target_temp = float(kwargs.get(ATTR_TEMPERATURE))
@@ -218,7 +217,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    async def async_set_hvac_mode(self, hvac_mode) -> None:
+    async def async_set_hvac_mode(self, hvac_mode):
         """Set operation mode."""
         if hvac_mode == HVACMode.OFF:
             await self._thermostat.setAttr(self._hass, { "power": 0 })
@@ -230,7 +229,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
                 await self._thermostat.setAttr(self._hass, { "power": 1, "work_mode": 0 })
         self.async_write_ha_state()
 
-    async def async_set_preset_mode(self, preset_mode) -> None:
+    async def async_set_preset_mode(self, preset_mode):
         """Set new preset mode."""
         self._preset_mode = preset_mode
 
@@ -245,15 +244,15 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         self.async_write_ha_state()
 
-    async def async_turn_off(self) -> None:
+    async def async_turn_off(self):
         """Turn thermostat off"""
         await self.async_set_hvac_mode(HVACMode.OFF)
 
-    async def async_turn_on(self) -> None:
+    async def async_turn_on(self):
         """Turn thermostat on"""
         await self.async_set_hvac_mode(HVACMode.AUTO)
 
-    async def async_update(self) -> None:
+    async def async_update(self):
         """Get thermostat info"""
         data = await self._thermostat.deviceAttrs(self._hass)
 
