@@ -255,7 +255,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
     async def async_update(self) -> None:
         """Get thermostat info"""
-        data = await self._thermostat.deviceAttrs
+        data = await self._thermostat.deviceAttrs()
 
         if not data:
             return
