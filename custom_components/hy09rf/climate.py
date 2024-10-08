@@ -74,8 +74,10 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
         self._thermostat = Hy09rfThermostat(config.get(CONF_HOST), config.get(CONF_APP_ID), config.get(CONF_USERNAME), config.get(CONF_PASSWORD), config.get(CONF_DID))
 
         self._name = config.get(CONF_NAME)
+        self._thermostat_set_temperature = None
         self._thermostat_set_temperature_min = DEFAULT_MIN_TEMP
         self._thermostat_set_temperature_max = DEFAULT_MAX_TEMP
+        self._thermostat_room_temperature = None
         self._thermostat_temperature_compensate = None
         self._external_temp = None
 
@@ -86,8 +88,7 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
 
         self._thermostat_current_action = None
         self._thermostat_current_mode = None
-        self._thermostat_room_temperature = None
-        self._thermostat_set_temperature = None
+        
 
         self._attr_name = self._name
         self._attr_unique_id = config.get(CONF_UNIQUE_ID)
@@ -146,7 +147,10 @@ class Hy09rfClimate(ClimateEntity, RestoreEntity):
     @property
     def current_temperature(self):
         """Return the current temperature."""
-        return self._thermostat_room_temperature + self._thermostat_temperature_compensate
+        if self._thermostat_room_temperature is None:
+            return None
+        else:
+            return self._thermostat_room_temperature + self._thermostat_temperature_compensate
 
     @property
     def target_temperature(self):
